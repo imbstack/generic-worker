@@ -58,7 +58,7 @@ func (c *Command) Execute() (r *Result) {
 	started := time.Now()
 
 	var out io.ReadCloser
-	out, r.SystemError = c.cli.ContainerLogs(c.ctx, c.resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	out, r.SystemError = c.cli.ContainerLogs(c.ctx, c.resp.ID, types.ContainerLogsOptions{})
 	if r.SystemError != nil {
 		return
 	}
@@ -71,6 +71,11 @@ func (c *Command) Execute() (r *Result) {
 		}
 	case r.ExitCode = (<-res).StatusCode:
 	}
+	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	if err != nil {
+		panic(err)
+	}
+	io.Copy(os.Stdout, out)
 
 	finished := time.Now()
 	r.Duration = finished.Sub(started)
@@ -106,6 +111,7 @@ func NewCommand(commandLine []string, workingDirectory string, env []string) (*C
 		return nil, err
 	}
 	defer cl.Close()
+	io.Copy(os.Stdout, reader)
 	c.resp, err = c.cli.ContainerCreate(
 		c.ctx,
 		&container.Config{

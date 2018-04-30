@@ -20,12 +20,14 @@ type Result struct {
 }
 
 type Command struct {
-	mutex  sync.RWMutex
-	ctx    context.Context
-	cli    *client.Client
-	resp   container.ContainerCreateCreatedBody
-	writer io.Writer
-	cmd    []string
+	mutex            sync.RWMutex
+	ctx              context.Context
+	cli              *client.Client
+	resp             container.ContainerCreateCreatedBody
+	writer           io.Writer
+	cmd              []string
+	workingDirectory string
+	env              []string
 }
 
 var cli *client.Client
@@ -47,6 +49,31 @@ func (c *Command) String() string {
 }
 
 func (c *Command) Execute() (r *Result) {
+
+	var outPull io.ReadCloser
+	outPull, r.SystemError = cli.ImagePull(c.ctx, "ubuntu", types.ImagePullOptions{})
+	if r.SystemError != nil {
+		return
+	}
+	defer outPull.Close()
+	io.Copy(c.writer, outPull)
+
+	c.resp, r.SystemError = c.cli.ContainerCreate(
+		c.ctx,
+		&container.Config{
+			Image:      "ubuntu",
+			Cmd:        c.cmd,
+			WorkingDir: c.workingDirectory,
+			Env:        c.env,
+		},
+		nil,
+		nil,
+		"",
+	)
+	if r.SystemError != nil {
+		return
+	}
+
 	r = &Result{}
 	c.mutex.Lock()
 
@@ -56,26 +83,23 @@ func (c *Command) Execute() (r *Result) {
 	}
 
 	started := time.Now()
-
-	var out io.ReadCloser
-	out, r.SystemError = c.cli.ContainerLogs(c.ctx, c.resp.ID, types.ContainerLogsOptions{})
-	if r.SystemError != nil {
-		return
-	}
-	go io.Copy(c.writer, out)
 	res, errch := c.cli.ContainerWait(c.ctx, c.resp.ID, container.WaitConditionNotRunning)
 	select {
 	case r.SystemError = <-errch:
 		if r.SystemError != nil {
 			return
 		}
-	case r.ExitCode = (<-res).StatusCode:
+	case exitCode := <-res:
+		r.ExitCode = exitCode.StatusCode
 	}
-	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-	if err != nil {
-		panic(err)
+
+	var outLogs io.ReadCloser
+	outLogs, r.SystemError = c.cli.ContainerLogs(c.ctx, c.resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	if r.SystemError != nil {
+		return
 	}
-	io.Copy(os.Stdout, out)
+	defer outLogs.Close()
+	io.Copy(c.writer, outLogs)
 
 	finished := time.Now()
 	r.Duration = finished.Sub(started)
@@ -100,34 +124,13 @@ func (r *Result) Failed() bool {
 
 func NewCommand(commandLine []string, workingDirectory string, env []string) (*Command, error) {
 	c := &Command{
-		ctx:    context.Background(),
-		writer: os.Stdout,
-		cmd:    commandLine,
-		cli:    cli,
+		ctx:              context.Background(),
+		writer:           os.Stdout,
+		cmd:              commandLine,
+		workingDirectory: workingDirectory,
+		cli:              cli,
+		env:              env,
 	}
-
-	cl, err := cli.ImagePull(c.ctx, "ubuntu", types.ImagePullOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer cl.Close()
-	io.Copy(os.Stdout, reader)
-	c.resp, err = c.cli.ContainerCreate(
-		c.ctx,
-		&container.Config{
-			Image:      "ubuntu",
-			Cmd:        commandLine,
-			WorkingDir: workingDirectory,
-			Env:        env,
-		},
-		nil,
-		nil,
-		"",
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	return c, nil
 }
 

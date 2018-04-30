@@ -3,6 +3,7 @@ package process
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -88,15 +89,11 @@ func NewCommand(commandLine []string, workingDirectory string, env []string) (*C
 		writer: os.Stdout,
 		cmd:    commandLine,
 	}
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClient("localhost", "1.24", http.DefaultClient, map[string]string{})
 	if err != nil {
 		return nil, err
 	}
 	c.cli = cli
-
-	// Workaround for errors like:
-	//  "Error response from daemon: client is newer than server (client API version: 1.37, server API version: 1.24)"
-	cli.NegotiateAPIVersion(c.ctx)
 
 	cl, err := cli.ImagePull(c.ctx, "ubuntu", types.ImagePullOptions{})
 	if err != nil {

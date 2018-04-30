@@ -51,6 +51,9 @@ func (c *Command) String() string {
 func (c *Command) Execute() (r *Result) {
 
 	var outPull io.ReadCloser
+	r = &Result{}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	outPull, r.SystemError = cli.ImagePull(c.ctx, "ubuntu", types.ImagePullOptions{})
 	if r.SystemError != nil {
 		return
@@ -73,9 +76,6 @@ func (c *Command) Execute() (r *Result) {
 	if r.SystemError != nil {
 		return
 	}
-
-	r = &Result{}
-	c.mutex.Lock()
 
 	r.SystemError = c.cli.ContainerStart(c.ctx, c.resp.ID, types.ContainerStartOptions{})
 	if r.SystemError != nil {

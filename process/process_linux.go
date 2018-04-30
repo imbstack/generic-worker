@@ -64,12 +64,13 @@ func (c *Command) Execute() (r *Result) {
 	}
 	go io.Copy(c.writer, out)
 	res, errch := c.cli.ContainerWait(c.ctx, c.resp.ID, container.WaitConditionNotRunning)
-	r.SystemError = <-errch
-	if r.SystemError != nil {
-		return
+	select {
+	case r.SystemError = <-errch:
+		if r.SystemError != nil {
+			return
+		}
+	case r.ExitCode = (<-res).StatusCode:
 	}
-
-	r.ExitCode = (<-res).StatusCode
 
 	finished := time.Now()
 	r.Duration = finished.Sub(started)

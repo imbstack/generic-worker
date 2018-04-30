@@ -89,7 +89,7 @@ func NewCommand(commandLine []string, workingDirectory string, env []string) (*C
 		writer: os.Stdout,
 		cmd:    commandLine,
 	}
-	cli, err := client.NewClient("localhost", "1.24", http.DefaultClient, map[string]string{})
+	cli, err := client.NewClient("unix:///var/run/docker.sock", "1.24", http.DefaultClient, map[string]string{})
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,6 @@ package process
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -89,7 +88,7 @@ func NewCommand(commandLine []string, workingDirectory string, env []string) (*C
 		writer: os.Stdout,
 		cmd:    commandLine,
 	}
-	cli, err := client.NewClient("unix:///var/run/docker.sock", "1.24", http.DefaultClient, map[string]string{})
+	cli, err := client.NewClientWithOpts(client.WithVersion("1.24"))
 	if err != nil {
 		return nil, err
 	}

@@ -94,6 +94,10 @@ func NewCommand(commandLine []string, workingDirectory string, env []string) (*C
 	}
 	c.cli = cli
 
+	// Workaround for errors like:
+	//  "Error response from daemon: client is newer than server (client API version: 1.37, server API version: 1.24)"
+	cli.NegotiateAPIVersion(c.ctx)
+
 	cl, err := cli.ImagePull(c.ctx, "ubuntu", types.ImagePullOptions{})
 	if err != nil {
 		return nil, err

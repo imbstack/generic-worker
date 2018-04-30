@@ -28,6 +28,16 @@ type Command struct {
 	cmd    []string
 }
 
+var cli *client.Client
+
+func init() {
+	var err error
+	cli, err = client.NewClientWithOpts(client.WithVersion("1.24"))
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (c *Command) DirectOutput(writer io.Writer) {
 	c.writer = writer
 }
@@ -87,12 +97,8 @@ func NewCommand(commandLine []string, workingDirectory string, env []string) (*C
 		ctx:    context.Background(),
 		writer: os.Stdout,
 		cmd:    commandLine,
+		cli:    cli,
 	}
-	cli, err := client.NewClientWithOpts(client.WithVersion("1.24"))
-	if err != nil {
-		return nil, err
-	}
-	c.cli = cli
 
 	cl, err := cli.ImagePull(c.ctx, "ubuntu", types.ImagePullOptions{})
 	if err != nil {
